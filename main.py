@@ -12,7 +12,6 @@ from typing import List, Any
 from tqdm import tqdm
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.datatypes import ExternalID
-from wikibaseintegrator.entities import LexemeEntity
 from wikibaseintegrator.wbi_helpers import execute_sparql_query
 from wikibaseintegrator.wbi_login import Login
 
@@ -20,6 +19,7 @@ import config
 
 logging.basicConfig(level=config.loglevel)
 logger = logging.getLogger(__name__)
+
 
 class Form(BaseModel):
     form: str
@@ -34,12 +34,15 @@ class ZipFileHandler(BaseModel):
     lexeme_ids: List[str] = list()
     no_dannet_lexeme_ids: List[str] = list()
     df: DataFrame = DataFrame()
-    wbi: WikibaseIntegrator = WikibaseIntegrator()
+    wbi: WikibaseIntegrator = None
+
+    # login: Login = None
 
     class Config:
         arbitrary_types_allowed = True
 
     def start(self):
+        self.setup_wbi()
         self.download_zip()
         self.unzip_content()
         # self.print_head_unzipped_content()
@@ -47,7 +50,7 @@ class ZipFileHandler(BaseModel):
         self.create_dataframe_and_export_csv()
         self.fetch_danish_lexeme_ids()
         self.fetch_danish_lexeme_ids_without_dannet_property()
-        self.find_dannet_ids_for_lexemes()
+        self.find_dannet_ids_for_lexemes_and_upload()
 
     def download_zip(self) -> None:
         response = requests.get(url=self.zip_file_path, stream=True)
@@ -145,6 +148,7 @@ class ZipFileHandler(BaseModel):
             ?lexeme dct:language wd:Q9035.
         }
         """
+        self.setup_wbi()
 
         # Run the SPARQL query
         query_result = execute_sparql_query(sparql_query)
@@ -164,6 +168,7 @@ class ZipFileHandler(BaseModel):
             }
         }
         """
+        self.setup_wbi()
 
         # Run the SPARQL query
         query_result = execute_sparql_query(sparql_query)
@@ -172,9 +177,9 @@ class ZipFileHandler(BaseModel):
                                                      query_result['results']['bindings']]
 
         self.no_dannet_lexeme_ids = danish_lexeme_ids_without_dannet_property
-        print(f"Fetched {len(self.no_dannet_lexeme_ids)} danish lexemes from Wikidata")
+        print(f"Fetched {len(self.no_dannet_lexeme_ids)} danish lexemes from Wikidata currently missing a DanNet 2.2 ID")
 
-    def find_dannet_ids_for_lexemes(self):
+    def find_dannet_ids_for_lexemes_and_upload(self):
         """Match forms and upload matches to Wikidata
         NOTE: we only match on the first lemma"""
         if not hasattr(self, 'no_dannet_lexeme_ids'):
@@ -199,24 +204,24 @@ class ZipFileHandler(BaseModel):
                 dannet_id = match.iloc[0]['id']
                 logger.info(f"Found match! DanNet 2.2. ID: {dannet_id}")
                 input("Press enter to upload")
-                self.upload_dannet_id_match(lexeme=lexeme, dannet_id=dannet_id)
+                claim = ExternalID(prop_nr="P6140", value=dannet_id)
+                lexeme.claims.add(claims=[claim])
+                lexeme.write(summary="Added {{P|P6140}} using [https://github.com/dpriskorn/LexDanNet LexDanNet]")
 
     def setup_wbi(self):
-        if not self.wbi:
-            self.wbi = WikibaseIntegrator(
-                login=Login(user=config.user_name, password=config.bot_password, user_agent=config.user_agent)
-            )
+        if self.wbi is None:
+            from wikibaseintegrator.wbi_config import config as wbi_config
 
-    def upload_dannet_id_match(self, lexeme: LexemeEntity, dannet_id: str):
-        if not lexeme:
-            raise ValueError("no lexeme")
-        if not dannet_id:
-            raise ValueError("no dannet_id")
-        self.setup_wbi()
-        claim = ExternalID(prop_nr="P6140", value=dannet_id)
-        lexeme.claims.add(claims=[claim])
-        lexeme.write()
+            wbi_config['USER_AGENT'] = config.user_agent
+
+            login = Login(user=config.user_name, password=config.bot_password)
+            self.wbi = WikibaseIntegrator(
+                login=login
+            )
+            # exit()
+
 
 # Usage
-url_zip_handler = ZipFileHandler(zip_file_path="https://repository.clarin.dk/repository/xmlui/bitstream/handle/20.500.12115/25/DanNet-2.2_owl.zip")
+url_zip_handler = ZipFileHandler(
+    zip_file_path="https://repository.clarin.dk/repository/xmlui/bitstream/handle/20.500.12115/25/DanNet-2.2_owl.zip")
 url_zip_handler.start()
