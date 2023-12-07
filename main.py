@@ -182,6 +182,8 @@ class ZipFileHandler(BaseModel):
     def find_dannet_ids_for_lexemes_and_upload(self):
         """Match forms and upload matches to Wikidata
         NOTE: we only match on the first lemma"""
+        # FIXME also compare lexical category
+        # TODO find out where the lexical category is stored in DanNet
         if not hasattr(self, 'no_dannet_lexeme_ids'):
             raise ValueError("No list of lexeme IDs without 'dannet' property")
 
@@ -201,12 +203,15 @@ class ZipFileHandler(BaseModel):
             match = self.df[self.df['form'] == lemma]
 
             if not match.empty:
-                dannet_id = match.iloc[0]['id']
-                logger.info(f"Found match! DanNet 2.2. ID: {dannet_id}")
-                input("Press enter to upload")
-                claim = ExternalID(prop_nr="P6140", value=dannet_id)
-                lexeme.claims.add(claims=[claim])
-                lexeme.write(summary="Added {{P|P6140}} using [https://github.com/dpriskorn/LexDanNet LexDanNet]")
+                if len(match) > 1:
+                    print("Found multiple matches, skipping")
+                else:
+                    dannet_id = match.iloc[0]['id']
+                    logger.info(f"Found match! DanNet 2.2. ID, see https://wordnet.dk/dannet/data/word-{dannet_id}")
+                    input("Press enter to upload if it matches or ctrl-c to exit")
+                    claim = ExternalID(prop_nr="P6140", value=dannet_id)
+                    lexeme.claims.add(claims=[claim])
+                    lexeme.write(summary="Added [[Property:P6140]] using [https://github.com/dpriskorn/LexDanNet LexDanNet]")
 
     def setup_wbi(self):
         if self.wbi is None:
