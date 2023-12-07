@@ -204,7 +204,7 @@ class ZipFileHandler(BaseModel):
     def setup_wbi(self):
         if not self.wbi:
             self.wbi = WikibaseIntegrator(
-                login=Login(user=config.user_name, password=config.bot_password)
+                login=Login(user=config.user_name, password=config.bot_password, user_agent=config.user_agent)
             )
 
     def upload_dannet_id_match(self, lexeme: LexemeEntity, dannet_id: str):
