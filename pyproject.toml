@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "lexdannet"
+version = "0.1.0"
+description = "Script to extract and add DanNet 2.2 word ID to Danish Wikidata lexemes"
+authors = ["Dennis Priskorn"]
+license = "GPLv3+"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+pydantic = "^2.5.2"
+requests = "^2.31.0"
+tqdm = "^4.66.1"
+pandas = "^2.1.3"
+wikibaseintegrator = "^0.12.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
