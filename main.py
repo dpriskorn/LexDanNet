@@ -198,7 +198,7 @@ class ZipFileHandler(BaseModel):
             if not match.empty:
                 dannet_id = match.iloc[0]['id']
                 logger.info(f"Found match! DanNet 2.2. ID: {dannet_id}")
-                exit()
+                input("Press enter to upload")
                 self.upload_dannet_id_match(lexeme=lexeme, dannet_id=dannet_id)
 
     def setup_wbi(self):
