@@ -38,6 +38,16 @@ class ZipFileHandler(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+    def start(self):
+        self.download_zip()
+        self.unzip_content()
+        # self.print_head_unzipped_content()
+        self.extract_forms()
+        self.create_dataframe_and_export_csv()
+        self.fetch_danish_lexeme_ids()
+        self.fetch_danish_lexeme_ids_without_dannet_property()
+        self.find_dannet_ids_for_lexemes()
+
     def download_zip(self) -> None:
         response = requests.get(url=self.zip_file_path, stream=True)
         if response.status_code != 200:
@@ -114,6 +124,7 @@ class ZipFileHandler(BaseModel):
 
         # Print info about the DataFrame
         print(df.info())
+        print(df.sample(5))
 
         # Export DataFrame to a CSV file
         df.to_csv('forms.csv', index=False)
@@ -198,13 +209,4 @@ class ZipFileHandler(BaseModel):
 
 # Usage
 url_zip_handler = ZipFileHandler(zip_file_path="https://repository.clarin.dk/repository/xmlui/bitstream/handle/20.500.12115/25/DanNet-2.2_owl.zip")
-url_zip_handler.download_zip()  # Downloads the zip file with progress
-url_zip_handler.unzip_content()
-url_zip_handler.print_head_unzipped_content()
-url_zip_handler.extract_forms()  # Extracts forms from the downloaded zip file
-
-for form in url_zip_handler.forms:
-    print(f"ID: {form.id}, Form: {form.form}")
-
-url_zip_handler.create_dataframe_and_export_csv()
-url_zip_handler.fetch_danish_lexeme_ids()
+url_zip_handler.start()
