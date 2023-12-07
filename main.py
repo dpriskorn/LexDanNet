@@ -34,6 +34,7 @@ class ZipFileHandler(BaseModel):
     lexeme_ids: List[str] = list()
     no_dannet_lexeme_ids: List[str] = list()
     df: DataFrame = DataFrame()
+    wbi: WikibaseIntegrator = WikibaseIntegrator()
 
     class Config:
         arbitrary_types_allowed = True
@@ -120,8 +121,15 @@ class ZipFileHandler(BaseModel):
     def create_dataframe_and_export_csv(self):
         print("Creating dataframe")
         self.check_unzipped_data()
-        df = pd.DataFrame(self.forms, columns=['id', 'form'])
+        # Assuming self.forms contains a list of dictionaries with 'id' and 'form' keys
+        forms_list = [{'id': entry.id, 'form': entry.form} for entry in self.forms]
 
+        # Separate forms and IDs
+        forms = [entry['form'] for entry in forms_list]
+        ids = [entry['id'] for entry in forms_list]
+
+        # Create DataFrame
+        df = pd.DataFrame({'id': ids, 'form': forms})
         # Print info about the DataFrame
         print(df.info())
         print(df.sample(5))
@@ -167,7 +175,8 @@ class ZipFileHandler(BaseModel):
         print(f"Fetched {len(self.no_dannet_lexeme_ids)} danish lexemes from Wikidata")
 
     def find_dannet_ids_for_lexemes(self):
-        """Match forms and upload matches to Wikidata"""
+        """Match forms and upload matches to Wikidata
+        NOTE: we only match on the first lemma"""
         if not hasattr(self, 'no_dannet_lexeme_ids'):
             raise ValueError("No list of lexeme IDs without 'dannet' property")
 
@@ -176,11 +185,12 @@ class ZipFileHandler(BaseModel):
 
         print("Finding DanNet IDs for lexemes")
         self.setup_wbi()
-
+        if not self.wbi:
+            raise ValueError("wbi not setup correctly")
         for lexeme_id in tqdm(self.no_dannet_lexeme_ids, desc="Processing lexemes"):
             logger.info(f"Working on {lexeme_id}")
-            lexeme = self.wbi.lexeme.get(entity_id=lexeme_id)
-            lemma = lexeme.lemmas.get(language="da")[0]
+            lexeme = self.wbi.lexeme.get(entity_id=lexeme_id.replace('http://www.wikidata.org/entity/', ''))
+            lemma = str(lexeme.lemmas.get(language="da"))
             logger.info(f"Got lemma {lemma} for {lexeme.get_entity_url()}")
 
             match = self.df[self.df['form'] == lemma]
