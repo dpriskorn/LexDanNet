@@ -314,6 +314,7 @@ class ZipFileHandler(BaseModel):
                         lexeme.claims.add(claims=[claim])
                         lexeme.write(
                             summary="Added [[Property:P6140]] using [[Wikidata:Tools/LexDanNet]]")
+                        print("Upload successful")
                     else:
                         # Handle case where the lexical category does not match pos_id in the DataFrame
                         print("Found matching lemma but the lexical categories do not add up:\n"
