@@ -285,8 +285,12 @@ class ZipFileHandler(BaseModel):
             lemma = str(lexeme.lemmas.get(language="da"))
             lexical_category = lexeme.lexical_category
             lexical_category_label = self.wbi.item.get(entity_id=lexical_category).labels.get(language="en")
+            senses = lexeme.senses.senses
+            please_improve_notice = "No Danish gloss for this sense, please help improve"
+            glosses = [sense.glosses.get(language="da") or please_improve_notice for sense in senses]
             print(f"Matching on lemma {lemma} with category {lexical_category_label} for {lexeme.get_entity_url()}")
-
+            for gloss in glosses:
+                print(f"Gloss: {gloss}")
             matches: DataFrame = self.df[self.df['form'] == lemma]
             if matches.empty:
                 print(f"Found no match for lemma '{lemma}' in DanNet")
