@@ -1,12 +1,13 @@
 import logging
 import re
+from xml import etree
 
 import pandas as pd
 import requests
 import zipfile
 from io import BytesIO
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from pydantic import BaseModel, AnyHttpUrl
 from typing import List, Any
 from tqdm import tqdm
@@ -26,11 +27,17 @@ class Form(BaseModel):
     id: str
 
 
+class PartOfSpeech(BaseModel):
+    pos: str
+    id: str
+
 class ZipFileHandler(BaseModel):
     zip_file_path: AnyHttpUrl
     zip_content: Any = BytesIO()
-    forms: List[Form] = []
-    unzipped_content: Any = BytesIO()
+    forms: List[Form] = list()
+    pos: List[PartOfSpeech] = list()
+    forms_xml: Any = None
+    pos_xml: Any = None
     lexeme_ids: List[str] = list()
     no_dannet_lexeme_ids: List[str] = list()
     df: DataFrame = DataFrame()
@@ -47,8 +54,10 @@ class ZipFileHandler(BaseModel):
         self.unzip_content()
         # self.print_head_unzipped_content()
         self.extract_forms()
-        self.create_dataframe_and_export_csv()
-        self.fetch_danish_lexeme_ids()
+        self.extract_part_of_speech()
+        self.create_dataframes_and_export_csv()
+        self.check_duplicates()
+        # self.fetch_danish_lexeme_ids()
         self.fetch_danish_lexeme_ids_without_dannet_property()
         self.find_dannet_ids_for_lexemes_and_upload()
 
@@ -67,27 +76,37 @@ class ZipFileHandler(BaseModel):
     def unzip_content(self) -> None:
         print("Unzipping content")
         self.zip_content.seek(0)
-        self.unzipped_content = BytesIO()
+        self.forms_xml = BytesIO()
+        self.pos_xml = BytesIO()
 
         with zipfile.ZipFile(self.zip_content, 'r') as zip_ref:
             words_owl_files = [file_name for file_name in zip_ref.namelist() if file_name.endswith('words.rdf')]
+            pos_owl_files = [file_name for file_name in zip_ref.namelist() if file_name.endswith('part_of_speech.rdf')]
+
             if not words_owl_files:
                 raise ValueError("No 'words.owl' file found in the zip archive.")
+            if not pos_owl_files:
+                raise ValueError("No 'part_of_speech.rdf' file found in the zip archive.")
 
             words_owl_file = words_owl_files[0]
-            self.unzipped_content.write(zip_ref.read(words_owl_file))
-            self.unzipped_content.seek(0)
+            pos_owl_file = pos_owl_files[0]
+
+            self.forms_xml.write(zip_ref.read(words_owl_file))
+            self.pos_xml.write(zip_ref.read(pos_owl_file))
+
+            self.forms_xml.seek(0)
+            self.pos_xml.seek(0)
 
     @property
     def unzipped_data_exists(self) -> bool:
-        return bool(self.unzipped_content)
+        return bool(self.forms_xml)
 
     def print_head_unzipped_content(self) -> None:
         print("Printing head of unzipped content")
         self.check_unzipped_data()
 
         lines_to_print = 30
-        for i, line in enumerate(self.unzipped_content.readlines()):
+        for i, line in enumerate(self.forms_xml.readlines()):
             print(line.decode('ISO-8859-1').rstrip())
             lines_to_print -= 1
             if lines_to_print <= 0:
@@ -103,7 +122,7 @@ class ZipFileHandler(BaseModel):
         self.check_unzipped_data()
         forms_list = []
 
-        xml_content = self.unzipped_content.getvalue().decode('ISO-8859-1')
+        xml_content = self.forms_xml.getvalue().decode('ISO-8859-1')
 
         pattern = r'<wn20schema:Word rdf:about="&dn;word-(.*?)" wn20schema:lexicalForm="(.*?)"'
         matches = re.findall(pattern, xml_content, re.DOTALL)
@@ -121,9 +140,51 @@ class ZipFileHandler(BaseModel):
         self.forms = forms_list
         print(f"{len(self.forms)} forms extracted")
 
-    def create_dataframe_and_export_csv(self):
-        print("Creating dataframe")
+    def extract_part_of_speech(self) -> None:
+        if self.pos_xml is None:
+            raise ValueError("pos_xml has no data.")
+
+        xml_content = self.pos_xml.getvalue().decode('ISO-8859-1')
+
+        pattern = r'<rdf:Description rdf:about="&dn;word-(.*?)"><dn_schema:partOfSpeech>(.*?)</dn_schema:partOfSpeech></rdf:Description>'
+        matches = re.findall(pattern, xml_content, re.DOTALL)
+
+        pos_list = []
+
+        for match in matches:
+            word_id, pos = match
+            pos_list.append(PartOfSpeech(pos=pos.strip(), id=word_id))
+
+        self.pos = pos_list
+        # for pos_obj in self.pos:
+        #     print(f"Part of Speech: {pos_obj.pos}, ID: {pos_obj.id}")
+        # exit()
+
+    @staticmethod
+    def map_pos_to_pos_id(pos: str):
+        pos_lower = pos.lower()
+        if pos_lower == 'noun':
+            return 'Q1084'
+        elif pos_lower == 'adjective':
+            return 'Q34698'
+        elif pos_lower == 'verb':
+            return 'Q24905'
+        else:
+            return None  # Handling for other cases if needed
+
+    def create_dataframes_and_export_csv(self):
+        print("Creating dataframes")
         self.check_unzipped_data()
+
+        data = {'id': [obj.id for obj in self.pos], 'pos': [obj.pos for obj in self.pos]}
+        pos_df = pd.DataFrame(data)
+
+        print(pos_df)
+        # Print info about the DataFrame
+        print(pos_df.info())
+        print(pos_df.sample(5))
+        # exit()
+
         # Assuming self.forms contains a list of dictionaries with 'id' and 'form' keys
         forms_list = [{'id': entry.id, 'form': entry.form} for entry in self.forms]
 
@@ -132,14 +193,28 @@ class ZipFileHandler(BaseModel):
         ids = [entry['id'] for entry in forms_list]
 
         # Create DataFrame
-        df = pd.DataFrame({'id': ids, 'form': forms})
+        forms_df = pd.DataFrame({'id': ids, 'form': forms})
         # Print info about the DataFrame
-        print(df.info())
-        print(df.sample(5))
+        print(forms_df.info())
+        print(forms_df.sample(5))
+
+        # Performing an inner join on 'id'
+        joined_df = pd.merge(pos_df, forms_df, on='id', how='inner')
+
+        # Create 'pos_id' column based on 'pos' (case insensitive)
+        joined_df['pos_id'] = joined_df['pos'].apply(self.map_pos_to_pos_id)
+
+        print(joined_df.info())
+        print(joined_df.sample(5))
+
+        # Count occurrences of each value in the 'pos' column
+        pos_counts = joined_df['pos'].value_counts()
+        print(pos_counts)
 
         # Export DataFrame to a CSV file
-        df.to_csv('forms.csv', index=False)
-        self.df = df
+        joined_df.to_csv('words.csv', index=False)
+        self.df = joined_df
+        # exit()
 
     def fetch_danish_lexeme_ids(self):
         # SPARQL query to retrieve Danish lexeme IDs
@@ -179,11 +254,21 @@ class ZipFileHandler(BaseModel):
         self.no_dannet_lexeme_ids = danish_lexeme_ids_without_dannet_property
         print(f"Fetched {len(self.no_dannet_lexeme_ids)} danish lexemes from Wikidata currently missing a DanNet 2.2 ID")
 
+    def check_duplicates(self):
+        # Check for duplicates in the 'id' column
+        duplicates = self.df['id'].duplicated()
+
+        # Count the number of duplicates
+        num_of_duplicates = duplicates.sum()
+
+        if num_of_duplicates == 0:
+            print("All IDs are unique!")
+        else:
+            raise ValueError(f"There are {num_of_duplicates} duplicate IDs in the dataframe.")
+
     def find_dannet_ids_for_lexemes_and_upload(self):
         """Match forms and upload matches to Wikidata
-        NOTE: we only match on the first lemma"""
-        # FIXME also compare lexical category
-        # TODO find out where the lexical category is stored in DanNet
+        For each lexeme missing we try to match against DanNet using both the lemma and lexical category"""
         if not hasattr(self, 'no_dannet_lexeme_ids'):
             raise ValueError("No list of lexeme IDs without 'dannet' property")
 
@@ -198,20 +283,39 @@ class ZipFileHandler(BaseModel):
             logger.info(f"Working on {lexeme_id}")
             lexeme = self.wbi.lexeme.get(entity_id=lexeme_id.replace('http://www.wikidata.org/entity/', ''))
             lemma = str(lexeme.lemmas.get(language="da"))
-            logger.info(f"Got lemma {lemma} for {lexeme.get_entity_url()}")
+            lexical_category = lexeme.lexical_category
+            lexical_category_label = self.wbi.item.get(entity_id=lexical_category).labels.get(language="en")
+            print(f"Matching on lemma {lemma} with category {lexical_category_label} for {lexeme.get_entity_url()}")
 
-            match = self.df[self.df['form'] == lemma]
-
-            if not match.empty:
-                if len(match) > 1:
-                    print("Found multiple matches, skipping")
-                else:
-                    dannet_id = match.iloc[0]['id']
-                    logger.info(f"Found match! DanNet 2.2. ID, see https://wordnet.dk/dannet/data/word-{dannet_id}")
-                    input("Press enter to upload if it matches or ctrl-c to exit")
-                    claim = ExternalID(prop_nr="P6140", value=dannet_id)
-                    lexeme.claims.add(claims=[claim])
-                    lexeme.write(summary="Added [[Property:P6140]] using [https://github.com/dpriskorn/LexDanNet LexDanNet]")
+            matches: DataFrame = self.df[self.df['form'] == lemma]
+            if matches.empty:
+                print(f"Found no match for lemma '{lemma}' in DanNet")
+            else:
+                # print(matches)
+                # print(type(matches))
+                # Iterating through rows using iterrows()
+                for index, match in matches.iterrows():
+                    category_match = False
+                    dannet_pos = match['pos']
+                    dannet_id = match['id']
+                    dannet_pos_id = match['pos_id']
+                    # If a match is found based on lemma, now check for matching lexical category
+                    if dannet_pos_id == lexical_category:
+                        category_match = True
+                    if category_match:
+                        # Perform further action as the lexical category matches the pos_id in the DataFrame
+                        print(f"Match found! See https://wordnet.dk/dannet/data/word-{dannet_id}")
+                        input("Press enter to upload if it matches or ctrl-c to exit")
+                        claim = ExternalID(prop_nr="P6140", value=dannet_id)
+                        lexeme.claims.add(claims=[claim])
+                        lexeme.write(
+                            summary="Added [[Property:P6140]] using [[Wikidata:Tools/LexDanNet]]")
+                    else:
+                        # Handle case where the lexical category does not match pos_id in the DataFrame
+                        print("Found matching lemma but the lexical categories do not add up:\n"
+                              f"Lemma: {lemma}\n"
+                              f"DanNet: {dannet_pos}\n"
+                              f"Wikidata: {lexical_category_label}")
 
     def setup_wbi(self):
         if self.wbi is None:
