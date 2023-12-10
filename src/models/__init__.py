@@ -307,23 +307,17 @@ class LexDanNet(BaseModel):
             raise ValueError("wbi not setup correctly")
         already_matched_and_uploaded = set()
         for lexeme_id in tqdm(self.no_dannet_lexeme_ids, desc="Processing lexemes"):
-            if lexeme_id not in already_matched_and_uploaded:
-                logger.info(f"Working on {lexeme_id}")
-                lexeme = self.wbi.lexeme.get(
-                    entity_id=lexeme_id.replace("http://www.wikidata.org/entity/", "")
-                )
-                lemma = str(lexeme.lemmas.get(language="da"))
+            logger.info(f"Working on {lexeme_id}")
+            lexeme = self.wbi.lexeme.get(
+                entity_id=lexeme_id.replace("http://www.wikidata.org/entity/", "")
+            )
+            lemma = str(lexeme.lemmas.get(language="da"))
+            if lemma not in already_matched_and_uploaded:
                 lexical_category_qid = lexeme.lexical_category
                 lexical_category_label = self.wbi.item.get(
                     entity_id=lexical_category_qid
                 ).labels.get(language="en")
                 senses = lexeme.senses.senses
-                if not senses:
-                    # TODO support importing senses from DanNet/DDO and
-                    #  use a GPT like chatgpt to rephrase/wash the gloss to avoid copyright
-                    print("No sense in Wikidata which we don't support. "
-                          "Please add at least one sense to match. Skipping")
-                    continue
                 glosses = [
                     sense.glosses.get(language="da")
                     for sense in senses if sense.glosses.get(language="da") is not None
@@ -349,9 +343,15 @@ class LexDanNet(BaseModel):
                     # print(matches)
                     # print(type(matches))
                     # Make sure we have Danish glosses for all senses
+                    if not senses:
+                        # TODO support importing senses from DanNet/DDO and
+                        #  use a GPT like chatgpt to rephrase/wash the gloss to avoid copyright
+                        print("No sense in Wikidata which we don't support. "
+                              f"Please add at least one sense to match on {lexeme.get_entity_url()}. Skipping")
+                        continue
                     if senses and not glosses or len(senses) != len(glosses):
                         print(f"We are missing a Danish gloss on {len(senses)-len(glosses)} sense(s)")
-                        while not glosses:
+                        while len(senses) != len(glosses):
                             self.ask_user_to_add_glosses(lexeme=lexeme)
                             # Reload glosses
                             lexeme = self.wbi.lexeme.get(
@@ -360,7 +360,7 @@ class LexDanNet(BaseModel):
                             glosses = [
                                 sense.glosses.get(language="da") for sense in lexeme.senses.senses
                             ]
-                    else:
+                    if senses and len(senses) == len(glosses):
                         print(f"Hooray, we have Danish glosses for all {len(senses)} senses!")
                     # Iterating through rows using iterrows()
                     for index, match in matches.iterrows():
@@ -390,7 +390,7 @@ class LexDanNet(BaseModel):
                                     summary="Added [[Property:P6140]] using [[Wikidata:Tools/LexDanNet]]"
                                 )
                                 print("Upload successful")
-                                already_matched_and_uploaded.add(lexeme_id)
+                                already_matched_and_uploaded.add(lemma)
                             else:
                                 print("Match rejected, skipping")
                         else:
@@ -401,6 +401,7 @@ class LexDanNet(BaseModel):
                                 f"DanNet: {dannet_pos}\n"
                                 f"Wikidata: {lexical_category_label}"
                             )
+                print("---")
 
     def match_approved(self) -> bool:
         """Ask user if match is good"""
@@ -418,9 +419,10 @@ class LexDanNet(BaseModel):
             return False
 
     def ask_user_to_add_glosses(self, lexeme: LexemeEntity):
-        print(f"Please add senses with a Danish gloss on {lexeme.get_entity_url()}. "
-              f"We recommend using the new copy sense script available here: "
-              f"https://www.wikidata.org/wiki/User:Jon_Harald_S%C3%B8by/copySenses.js")
+        print(f"Please add Danish glosses on all senses on this "
+              f"lexeme to procede to matching.")
+              # f"We recommend using the new copy sense script available here: "
+              # f"https://www.wikidata.org/wiki/User:Jon_Harald_S%C3%B8by/copySenses.js")
         input("Press enter to continue")
 
     def setup_wbi(self):
