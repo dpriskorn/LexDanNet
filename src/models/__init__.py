@@ -323,6 +323,7 @@ class LexDanNet(BaseModel):
             matches: DataFrame = self.df[self.df["form"] == lemma]
             if matches.empty:
                 logger.info(f"Found no match for lemma '{lemma}' in DanNet")
+                # TODO add missing in -> DanNet 2.2. statement
             else:
                 # print(matches)
                 # print(type(matches))
