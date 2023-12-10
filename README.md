@@ -13,6 +13,7 @@ Enity linking CLI-application to help link DanNet 2.2 word ID with Danish Wikida
 * extraction of DDO id's
 * linking senses also
 * add "missing in" statements when lemma is not found in DanNet
+* extract sentiment and add it either to sense or lexemes in Wikidata (discussion needed)
 
 ## Use
 `python main.py`
