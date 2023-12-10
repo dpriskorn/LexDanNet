@@ -328,7 +328,7 @@ class LexDanNet(BaseModel):
                     "No Danish gloss for this sense, please help improve"
                 )
                 glosses = [
-                    sense.glosses.get(language="da") or please_improve_notice
+                    sense.glosses.get(language="da")
                     for sense in senses
                 ]
                 print(
@@ -361,8 +361,7 @@ class LexDanNet(BaseModel):
                                 entity_id=lexeme_id.replace("http://www.wikidata.org/entity/", "")
                             )
                             glosses = [
-                                sense.glosses.get(language="da") or please_improve_notice
-                                for sense in lexeme.senses.senses
+                                sense.glosses.get(language="da") for sense in lexeme.senses.senses
                             ]
                     # Iterating through rows using iterrows()
                     for index, match in matches.iterrows():
