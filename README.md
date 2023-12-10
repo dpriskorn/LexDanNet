@@ -8,11 +8,11 @@ Enity linking CLI-application to help link DanNet 2.2 word ID with Danish Wikida
 * Extracting data we need
 * Downloading lexemes missing DanNet 2.2. ID
 * Matches using both lemma and lexical category
+* add "missing in" statements when lemma is not found in DanNet
 
 ### TODO
 * extraction of DDO id's
 * linking senses also
-* add "missing in" statements when lemma is not found in DanNet
 * extract sentiment and add it either to sense or lexemes in Wikidata (discussion needed)
 
 ## Use
