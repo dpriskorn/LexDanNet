@@ -333,7 +333,9 @@ class LexDanNet(BaseModel):
                     dannet_pos = match["pos"]
                     dannet_id = match["id"]
                     dannet_pos_qid = match["pos_id"]
-                    logger.info(f"id: {dannet_id}, pos: {dannet_pos}, pos_qid: {dannet_pos_qid}")
+                    logger.info(
+                        f"id: {dannet_id}, pos: {dannet_pos}, pos_qid: {dannet_pos_qid}"
+                    )
                     # If a match is found based on lemma, now check for matching lexical category
                     if dannet_pos_qid == str(lexical_category_qid):
                         category_match = True
