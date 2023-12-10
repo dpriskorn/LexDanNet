@@ -14,7 +14,7 @@ from pandas import DataFrame
 from pydantic import BaseModel, AnyHttpUrl
 from tqdm import tqdm
 from wikibaseintegrator import WikibaseIntegrator
-from wikibaseintegrator.datatypes import ExternalID
+from wikibaseintegrator.datatypes import ExternalID, Item
 from wikibaseintegrator.wbi_helpers import execute_sparql_query
 from wikibaseintegrator.wbi_login import Login
 
@@ -246,12 +246,16 @@ class LexDanNet(BaseModel):
         print(f"Fetched {len(self.lexeme_ids)} danish lexemes from Wikidata")
 
     def fetch_danish_lexeme_ids_without_dannet_property(self):
-        # SPARQL query to retrieve Danish lexeme IDs without the "dannet" property
+        """SPARQL query to retrieve Danish lexeme IDs without the "dannet" property and
+        without missing in -> dannet 2.2 statement"""
         sparql_query = """
-        SELECT ?lexeme WHERE {
-            ?lexeme dct:language wd:Q9035.
-            FILTER NOT EXISTS {
-                ?lexeme wdt:P6140 ?dannetProperty.
+        SELECT ?lexeme WHERE {                            # Start of the query to select lexemes
+            ?lexeme dct:language wd:Q9035.              # Lexeme has language Danish
+            FILTER NOT EXISTS {                          # Excludes lexemes with a specific property
+                ?lexeme wdt:P6140 [].                    # Lexeme has property DanNet 2.2. ID with any value
+            }
+            FILTER NOT EXISTS {                          # Excludes lexemes with another specific property value
+                ?lexeme wdt:P9660 wd:Q123739672.       # Lexeme has property "missing in" pointing to DanNet 2.2
             }
         }
         """
@@ -322,13 +326,22 @@ class LexDanNet(BaseModel):
                 print(f"Gloss: {gloss}")
             matches: DataFrame = self.df[self.df["form"] == lemma]
             if matches.empty:
+                # TODO factor out into own method
                 logger.info(f"Found no match for lemma '{lemma}' in DanNet")
-                # TODO add missing in -> DanNet 2.2. statement
+                print("Lemma missing in DanNet. Uploading missing in -> DanNet 2.2 statement")
+                claim = Item(prop_nr="P9660", value="Q123739672")
+                lexeme.claims.add(claims=[claim])
+                lexeme.write(
+                    summary="Added [[Property:P9660]]->[[Q123739672]] using [[Wikidata:Tools/LexDanNet]]"
+                )
+                print("Upload successful")
             else:
+                # TODO factor out into own method
                 # print(matches)
                 # print(type(matches))
                 # Iterating through rows using iterrows()
                 for index, match in matches.iterrows():
+                    logger.info(f"Iterating match {index}/{len(matches)}")
                     category_match = False
                     dannet_pos = match["pos"]
                     dannet_id = match["id"]
