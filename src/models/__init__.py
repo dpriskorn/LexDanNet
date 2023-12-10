@@ -19,7 +19,8 @@ from wikibaseintegrator.wbi_helpers import execute_sparql_query
 from wikibaseintegrator.wbi_login import Login
 
 import config
-from src.models import Form, PartOfSpeech
+from src.models.form import Form
+from src.models.part_of_speech import PartOfSpeech
 
 logger = logging.getLogger(__name__)
 
