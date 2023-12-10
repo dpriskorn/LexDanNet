@@ -4,7 +4,7 @@ Script to extract and add DanNet 2.2 word ID to Danish Wikidata lexemes
 ## Features
 * Fetching DanNet
 * Extracting data we need
-* Downloading lexemes
+* Downloading lexemes missing DanNet 2.2. ID
 * Matches using both lemma and lexical category
 
 ## Use
