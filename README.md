@@ -22,3 +22,12 @@ Enity linking CLI-application to help link DanNet 2.2 word ID with Danish Wikida
 * chatGPT needs a lot of handholding when it comes to WikibaseIntegrator. It produces garbage.
 * Small projects like this still takes hours to do which is rather surprising, we need better/simpler infrastructure
 * WikibaseIntegrator has no helper method to check if it has logged in or not https://github.com/LeMyst/WikibaseIntegrator/issues/638
+
+## Value estimation of this project and the finished linking
+Entity linking and improving the link between disparate resources describing the language is very valuable to a society.
+These links can be used to help enrich the data in Wikidata and in DanNet in this case. 
+E.g. this application has unearthed that a lot of lexemes are currently missing in DanNet and currently perhaps not documented anywhere else than in Wikidata.
+A scientist capable of linking datasets and producing valuable output costs about 0,7-1 mio SEK a year to hire.
+Recently Swedish scientists with ML but no RDF or linked data competence got 5 mio. to work on the (messy) Riksdagen dataset.
+Based on these observations I, Dennis Priskorn, estimate that the value of this project is around 500.000 SEK once completed.
+The code alone is estimated to be worth at least 50.000 SEK or about a monthly wage of a senior Python developer in Sweden.
