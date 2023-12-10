@@ -1,11 +1,18 @@
 # LexDanNet
-Script to extract and add DanNet 2.2 word ID to Danish Wikidata lexemes
+Enity linking CLI-application to help link DanNet 2.2 word ID with Danish Wikidata lexemes.
+
+![image](https://github.com/dpriskorn/LexDanNet/assets/68460690/0863e927-e00f-4825-b963-59222278b003)
 
 ## Features
 * Fetching DanNet
 * Extracting data we need
 * Downloading lexemes missing DanNet 2.2. ID
 * Matches using both lemma and lexical category
+
+### TODO
+* extraction of DDO id's
+* linking senses also
+* add "missing in" statements when lemma is not found in DanNet
 
 ## Use
 `python main.py`
