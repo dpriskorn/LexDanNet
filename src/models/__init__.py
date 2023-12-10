@@ -323,13 +323,10 @@ class LexDanNet(BaseModel):
                     #  use a GPT like chatgpt to rephrase/wash the gloss to avoid copyright
                     print("No sense in Wikidata which we don't support. "
                           "Please add at least one sense to match. Skipping")
-                    break
-                please_improve_notice = (
-                    "No Danish gloss for this sense, please help improve"
-                )
+                    continue
                 glosses = [
                     sense.glosses.get(language="da")
-                    for sense in senses
+                    for sense in senses if sense.glosses.get(language="da") is not None
                 ]
                 print(
                     f"Matching on lemma '{lemma}' with category {lexical_category_label} for {lexeme.get_entity_url()}"
@@ -353,7 +350,7 @@ class LexDanNet(BaseModel):
                     # print(type(matches))
                     # Make sure we have Danish glosses for all senses
                     if senses and not glosses or len(senses) != len(glosses):
-                        print("We are missing a Danish gloss on at least one sense")
+                        print(f"We are missing a Danish gloss on {len(senses)-len(glosses)} sense(s)")
                         while not glosses:
                             self.ask_user_to_add_glosses(lexeme=lexeme)
                             # Reload glosses
@@ -363,6 +360,8 @@ class LexDanNet(BaseModel):
                             glosses = [
                                 sense.glosses.get(language="da") for sense in lexeme.senses.senses
                             ]
+                    else:
+                        print(f"Hooray, we have Danish glosses for all {len(senses)} senses!")
                     # Iterating through rows using iterrows()
                     for index, match in matches.iterrows():
                         logger.info(f"Iterating match {index}/{len(matches)}")
