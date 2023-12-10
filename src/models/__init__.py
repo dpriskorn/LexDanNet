@@ -316,13 +316,13 @@ class LexDanNet(BaseModel):
                 for sense in senses
             ]
             print(
-                f"Matching on lemma {lemma} with category {lexical_category_label} for {lexeme.get_entity_url()}"
+                f"Matching on lemma '{lemma}' with category {lexical_category_label} for {lexeme.get_entity_url()}"
             )
             for gloss in glosses:
                 print(f"Gloss: {gloss}")
             matches: DataFrame = self.df[self.df["form"] == lemma]
             if matches.empty:
-                print(f"Found no match for lemma '{lemma}' in DanNet")
+                logger.info(f"Found no match for lemma '{lemma}' in DanNet")
             else:
                 # print(matches)
                 # print(type(matches))
@@ -332,9 +332,11 @@ class LexDanNet(BaseModel):
                     dannet_pos = match["pos"]
                     dannet_id = match["id"]
                     dannet_pos_qid = match["pos_id"]
+                    logger.info(f"id: {dannet_id}, pos: {dannet_pos}, pos_qid: {dannet_pos_qid}")
                     # If a match is found based on lemma, now check for matching lexical category
-                    if dannet_pos_qid == lexical_category_qid:
+                    if dannet_pos_qid == str(lexical_category_qid):
                         category_match = True
+                        print("Found category match")
                     if category_match:
                         # Perform further action as the lexical category matches the pos_id in the DataFrame
                         print(
@@ -349,7 +351,7 @@ class LexDanNet(BaseModel):
                         print("Upload successful")
                     else:
                         # Handle case where the lexical category does not match pos_id in the DataFrame
-                        print(
+                        logger.info(
                             "Found matching lemma but the lexical categories do not add up:\n"
                             f"Lemma: {lemma}\n"
                             f"DanNet: {dannet_pos}\n"
