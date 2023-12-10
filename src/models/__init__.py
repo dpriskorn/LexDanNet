@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class LexDanNet(BaseModel):
-    zip_file_path: AnyHttpUrl
+    zip_file_path: AnyHttpUrl = "https://repository.clarin.dk/repository/xmlui/bitstream/handle/20.500.12115/25/DanNet-2.2_owl.zip"
     zip_content: Any = BytesIO()
     forms: List[Form] = list()
     pos: List[PartOfSpeech] = list()
