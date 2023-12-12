@@ -1,10 +1,10 @@
 import logging
+import os
 import re
 import zipfile
 from io import BytesIO
 from typing import Any, List
 
-import inquirer
 import pandas as pd
 import requests
 from pandas import DataFrame
@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class LexDanNet(BaseModel):
-    zip_file_path: AnyHttpUrl = "https://repository.clarin.dk/repository/xmlui/bitstream/handle/20.500.12115/25/DanNet-2.2_owl.zip"
-    zip_content: Any = BytesIO()
+    zip_url_path: AnyHttpUrl = "https://repository.clarin.dk/repository/xmlui/bitstream/handle/20.500.12115/25/DanNet-2.2_owl.zip"
+    zip_file_path: str = "dannet.zip"
     forms: List[Form] = list()
     pos: List[PartOfSpeech] = list()
     forms_xml: Any = None
@@ -59,7 +59,11 @@ class LexDanNet(BaseModel):
         self.find_dannet_ids_for_lexemes_and_upload()
 
     def download_zip(self) -> None:
-        response = requests.get(url=self.zip_file_path, stream=True)
+        if os.path.exists(self.zip_file_path):
+            print("File already exists on disk.")
+            return  # File exists, no need to download again
+
+        response = requests.get(url=self.zip_url_path, stream=True)
         if response.status_code != 200:
             raise ValueError("Invalid URL or unable to download the file.")
 
@@ -68,17 +72,19 @@ class LexDanNet(BaseModel):
         with tqdm(
             total=total_size, unit="B", unit_scale=True, desc="Downloading"
         ) as pbar:
-            for chunk in response.iter_content(chunk_size=1024):
-                self.zip_content.write(chunk)
-                pbar.update(len(chunk))
+            with open(
+                self.zip_file_path, "wb"
+            ) as file:  # Open a file to write the content
+                for chunk in response.iter_content(chunk_size=1024):
+                    file.write(chunk)  # Write each chunk to the file
+                    pbar.update(len(chunk))
 
     def unzip_content(self) -> None:
         print("Unzipping content")
-        self.zip_content.seek(0)
         self.forms_xml = BytesIO()
         self.pos_xml = BytesIO()
 
-        with zipfile.ZipFile(self.zip_content, "r") as zip_ref:
+        with zipfile.ZipFile(self.zip_file_path, "r") as zip_ref:
             words_owl_files = [
                 file_name
                 for file_name in zip_ref.namelist()
