@@ -54,10 +54,10 @@ class Lexeme(BaseModel):
         self.matches: DataFrame = self.df[self.df["form"] == self.lemma]
         if self.matches.empty:
             self.upload_missing_in_statement()
-        else:
-            self.print_details()
-            self.iterate_matches()
-            print("---")
+        # else:
+        #     self.print_details()
+        #     self.iterate_matches()
+        #     print("---")
 
     def upload_missing_in_statement(self):
         logger.info(
