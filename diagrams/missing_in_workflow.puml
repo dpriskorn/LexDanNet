@@ -1,0 +1,19 @@
+@startuml
+'https://plantuml.com/activity-diagram
+
+start
+:fetch DanNet 2.2;
+:fetch all danish lexemes missing DanNet 2.2 ID;
+repeat
+:read lexeme;
+if (matching lemma with the same lexical category exists in DanNet) then (yes)
+  :do nothing;
+  stop
+else (no)
+  :add missing in-statement;
+endif
+repeat while (more data?) is (yes)
+->no;
+stop
+
+@enduml
