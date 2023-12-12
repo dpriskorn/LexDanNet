@@ -65,7 +65,7 @@ class Lexeme(BaseModel):
             f"with lexical category {self.lexical_category_label} in DanNet"
         )
         print("Lemma missing in DanNet. Uploading missing in -> DanNet 2.2 statement")
-        input("press enter to continue")
+        # input("press enter to continue")
         claim = Item(prop_nr="P9660", value="Q123739672")
         self.lexeme.claims.add(claims=[claim])
         self.lexeme.write(
