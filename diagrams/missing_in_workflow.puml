@@ -3,7 +3,7 @@
 
 start
 :fetch DanNet 2.2;
-:fetch all danish lexemes missing DanNet 2.2 ID;
+:fetch all danish lexemes missing DanNet 2.2 ID that does not have missing in->dannet already;
 repeat
 :read lexeme;
 if (matching lemma with the same lexical category exists in DanNet) then (yes)
