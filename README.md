@@ -20,8 +20,8 @@ Enity linking CLI-application to help link DanNet 2.2 word ID with Danish Wikida
 
 ## What I learned
 * chatGPT needs a lot of handholding when it comes to WikibaseIntegrator. It produces garbage.
-* Small projects like this still takes hours to do which is rather surprising, we need better/simpler infrastructure
 * WikibaseIntegrator has no helper method to check if it has logged in or not https://github.com/LeMyst/WikibaseIntegrator/issues/638
+* DanNet is not one thing. They have many different versions. More programming is needed to support the newer ttl-based versions. 
 
 ## Value estimation of this project and the finished linking
 Entity linking and improving the link between disparate resources describing the language is very valuable to a society.
