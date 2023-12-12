@@ -1,28 +1,24 @@
-import inquirer
-from wikibaseintegrator.entities import LexemeEntity
-
-from src.models.form import Form
-from src.models.part_of_speech import PartOfSpeech
-
-
 import logging
 import re
 import zipfile
 from io import BytesIO
 from typing import Any, List
 
+import inquirer
 import pandas as pd
 import requests
 from pandas import DataFrame
 from pydantic import BaseModel, AnyHttpUrl
 from tqdm import tqdm
 from wikibaseintegrator import WikibaseIntegrator
-from wikibaseintegrator.datatypes import ExternalID, Item
 from wikibaseintegrator.wbi_helpers import execute_sparql_query
 from wikibaseintegrator.wbi_login import Login
 
 import config
 from src.models.form import Form
+from src.models.form import Form
+from src.models.lexeme import Lexeme
+from src.models.part_of_speech import PartOfSpeech
 from src.models.part_of_speech import PartOfSpeech
 
 logger = logging.getLogger(__name__)
@@ -305,125 +301,9 @@ class LexDanNet(BaseModel):
         self.setup_wbi()
         if not self.wbi:
             raise ValueError("wbi not setup correctly")
-        already_matched_and_uploaded = set()
         for lexeme_id in tqdm(self.no_dannet_lexeme_ids, desc="Processing lexemes"):
-            logger.info(f"Working on {lexeme_id}")
-            lexeme = self.wbi.lexeme.get(
-                entity_id=lexeme_id.replace("http://www.wikidata.org/entity/", "")
-            )
-            lemma = str(lexeme.lemmas.get(language="da"))
-            if lemma not in already_matched_and_uploaded:
-                lexical_category_qid = lexeme.lexical_category
-                lexical_category_label = self.wbi.item.get(
-                    entity_id=lexical_category_qid
-                ).labels.get(language="en")
-                senses = lexeme.senses.senses
-                glosses = [
-                    sense.glosses.get(language="da")
-                    for sense in senses if sense.glosses.get(language="da") is not None
-                ]
-                print(
-                    f"Matching on lemma '{lemma}' with category {lexical_category_label} for {lexeme.get_entity_url()}"
-                )
-                for gloss in glosses:
-                    print(f"Gloss: {gloss}")
-                matches: DataFrame = self.df[self.df["form"] == lemma]
-                if matches.empty:
-                    # TODO factor out into own method
-                    logger.info(f"Found no match for lemma '{lemma}' in DanNet")
-                    print("Lemma missing in DanNet. Uploading missing in -> DanNet 2.2 statement")
-                    claim = Item(prop_nr="P9660", value="Q123739672")
-                    lexeme.claims.add(claims=[claim])
-                    lexeme.write(
-                        summary="Added [[Property:P9660]]->[[Q123739672]] using [[Wikidata:Tools/LexDanNet]]"
-                    )
-                    print("Upload successful")
-                else:
-                    # TODO factor out into own method
-                    # print(matches)
-                    # print(type(matches))
-                    # Make sure we have Danish glosses for all senses
-                    if not senses:
-                        # TODO support importing senses from DanNet/DDO and
-                        #  use a GPT like chatgpt to rephrase/wash the gloss to avoid copyright
-                        print("No sense in Wikidata which we don't support. "
-                              f"Please add at least one sense to match on {lexeme.get_entity_url()}. Skipping")
-                        continue
-                    if senses and not glosses or len(senses) != len(glosses):
-                        print(f"We are missing a Danish gloss on {len(senses)-len(glosses)} sense(s)")
-                        while len(senses) != len(glosses):
-                            self.ask_user_to_add_glosses(lexeme=lexeme)
-                            # Reload glosses
-                            lexeme = self.wbi.lexeme.get(
-                                entity_id=lexeme_id.replace("http://www.wikidata.org/entity/", "")
-                            )
-                            glosses = [
-                                sense.glosses.get(language="da") for sense in lexeme.senses.senses
-                            ]
-                    if senses and len(senses) == len(glosses):
-                        print(f"Hooray, we have Danish glosses for all {len(senses)} senses!")
-                    # Iterating through rows using iterrows()
-                    for index, match in matches.iterrows():
-                        logger.info(f"Iterating match {index}/{len(matches)}")
-                        category_match = False
-                        dannet_pos = match["pos"]
-                        dannet_id = match["id"]
-                        dannet_pos_qid = match["pos_id"]
-                        logger.info(
-                            f"id: {dannet_id}, pos: {dannet_pos}, pos_qid: {dannet_pos_qid}"
-                        )
-                        # If a match is found based on lemma, now check for matching lexical category
-                        if dannet_pos_qid == str(lexical_category_qid):
-                            category_match = True
-                            print("Found category match")
-                        if category_match:
-                            # Perform further action as the lexical category matches the pos_id in the DataFrame
-                            print(
-                                f"Match found! See https://wordnet.dk/dannet/data/word-{dannet_id}"
-                            )
-                            if self.match_approved():
-                                print("Match was approved, uploading...")
-                                # input("Press enter to upload if it matches or ctrl-c to exit")
-                                claim = ExternalID(prop_nr="P6140", value=dannet_id)
-                                lexeme.claims.add(claims=[claim])
-                                lexeme.write(
-                                    summary="Added [[Property:P6140]] using [[Wikidata:Tools/LexDanNet]]"
-                                )
-                                print("Upload successful")
-                                already_matched_and_uploaded.add(lemma)
-                            else:
-                                print("Match rejected, skipping")
-                        else:
-                            # Handle case where the lexical category does not match pos_id in the DataFrame
-                            logger.info(
-                                "Found matching lemma but the lexical categories do not add up:\n"
-                                f"Lemma: {lemma}\n"
-                                f"DanNet: {dannet_pos}\n"
-                                f"Wikidata: {lexical_category_label}"
-                            )
-                print("---")
-
-    def match_approved(self) -> bool:
-        """Ask user if match is good"""
-        question = [
-            inquirer.List('choice',
-                          message="Is this a good match?",
-                          choices=['Yes', 'No'],
-                          default='No',
-                          ),
-        ]
-        answer = inquirer.prompt(question)
-        if answer['choice'] == 'Yes':
-            return True
-        else:
-            return False
-
-    def ask_user_to_add_glosses(self, lexeme: LexemeEntity):
-        print(f"Please add Danish glosses on all senses on this "
-              f"lexeme to procede to matching.")
-              # f"We recommend using the new copy sense script available here: "
-              # f"https://www.wikidata.org/wiki/User:Jon_Harald_S%C3%B8by/copySenses.js")
-        input("Press enter to continue")
+            l = Lexeme(lexeme_id=lexeme_id, wbi=self.wbi, df=self.df)
+            l.match()
 
     def setup_wbi(self):
         if self.wbi is None:
